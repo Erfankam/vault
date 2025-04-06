@@ -41,10 +41,11 @@ type KVMetadata struct {
 // All fields should be explicitly provided, as any fields left unset in the
 // struct will be reset to their zero value.
 type KVMetadataPutInput struct {
-	CASRequired        bool
-	CustomMetadata     map[string]interface{}
-	DeleteVersionAfter time.Duration
-	MaxVersions        int
+	CASRequired               bool
+	CustomMetadata            map[string]interface{}
+	DeleteVersionAfter        time.Duration
+	DestroyKeyAfterAutoDelete bool
+	MaxVersions               int
 }
 
 // KVMetadataPatchInput is the subset of metadata that can be manually modified for
@@ -58,10 +59,11 @@ type KVMetadataPutInput struct {
 // Since maps are already pointers, use an empty map to remove all
 // custom metadata.
 type KVMetadataPatchInput struct {
-	CASRequired        *bool
-	CustomMetadata     map[string]interface{}
-	DeleteVersionAfter *time.Duration
-	MaxVersions        *int
+	CASRequired               *bool
+	CustomMetadata            map[string]interface{}
+	DeleteVersionAfter        *time.Duration
+	DestroyKeyAfterAutoDelete *bool
+	MaxVersions               *int
 }
 
 // KVVersionMetadata is a subset of metadata for a given version of a KV v2 secret.
@@ -271,16 +273,18 @@ func (kv *KVv2) PutMetadata(ctx context.Context, secretPath string, metadata KVM
 	pathToWriteTo := fmt.Sprintf("%s/metadata/%s", kv.mountPath, secretPath)
 
 	const (
-		casRequiredKey        = "cas_required"
-		deleteVersionAfterKey = "delete_version_after"
-		maxVersionsKey        = "max_versions"
-		customMetadataKey     = "custom_metadata"
+		casRequiredKey            = "cas_required"
+		deleteVersionAfterKey     = "delete_version_after"
+		destroyKeyAfterAutoDelete = "destroy_after_auto_delete"
+		maxVersionsKey            = "max_versions"
+		customMetadataKey         = "custom_metadata"
 	)
 
 	// convert values to a map we can pass to Logical
 	metadataMap := make(map[string]interface{})
 	metadataMap[maxVersionsKey] = metadata.MaxVersions
 	metadataMap[deleteVersionAfterKey] = metadata.DeleteVersionAfter.String()
+	metadataMap[destroyKeyAfterAutoDelete] = metadata.DestroyKeyAfterAutoDelete
 	metadataMap[casRequiredKey] = metadata.CASRequired
 	metadataMap[customMetadataKey] = metadata.CustomMetadata
 
@@ -749,10 +753,11 @@ func toMetadataMap(patchInput KVMetadataPatchInput) (map[string]interface{}, err
 	metadataMap := make(map[string]interface{})
 
 	const (
-		casRequiredKey        = "cas_required"
-		deleteVersionAfterKey = "delete_version_after"
-		maxVersionsKey        = "max_versions"
-		customMetadataKey     = "custom_metadata"
+		casRequiredKey            = "cas_required"
+		deleteVersionAfterKey     = "delete_version_after"
+		destroyKeyAfterAutoDelete = "destroy_after_auto_delete"
+		maxVersionsKey            = "max_versions"
+		customMetadataKey         = "custom_metadata"
 	)
 
 	// The KVMetadataPatchInput struct is designed to have pointer fields so that
@@ -775,6 +780,9 @@ func toMetadataMap(patchInput KVMetadataPatchInput) (map[string]interface{}, err
 	}
 	if patchInput.DeleteVersionAfter != nil {
 		metadataMap[deleteVersionAfterKey] = patchInput.DeleteVersionAfter.String()
+	}
+	if patchInput.DestroyKeyAfterAutoDelete != nil {
+		metadataMap[destroyKeyAfterAutoDelete] = *(patchInput.DestroyKeyAfterAutoDelete)
 	}
 
 	return metadataMap, nil
